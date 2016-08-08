@@ -4,13 +4,14 @@
 #include <math.h>
 #include <string.h>
 
+
 typedef struct{     //struct para identificar las palabras del comando escrito y la cantidad de palabras recibidas
     char comando[100];
     int numero;
     struct nodo* siguiente;
 } nodo;
 
-typedef struct{ //struct para
+typedef struct{ //struct para manejar archivo de scripts
     char comando[100];
     char atributo[100];
     int numero;
@@ -70,7 +71,7 @@ void analizar(char c[100]){
 }
 
 void agregar(char* comando,int numero){     //agregar a la lista las palabras recibidas
-    printf("%s %s %d palabra\n",terminal,comando,numero);
+   // printf("%s %s %d palabra\n",terminal,comando,numero);
 
     nodo* nuevo = malloc(sizeof(nodo));     //espacio para lista de palabras
     nuevo->siguiente = NULL;
@@ -100,7 +101,7 @@ void ejecutar(nodo* comando){ //tomar datos de scanf desde lista
     for(i = 0; nombreComando[i]; i++)
         nombreComando[i] = tolower(nombreComando[i]); //convierte a minusculas
 
-    if((strcmp( nombreComando, "exec" )==0))    //leer script.sh
+    if((strcmp( nombreComando, "exec" )==0))    //si ay archivo leer script.sh
     {
         nodo *auxiliar = comando->siguiente;
         strcpy(rutaScript, auxiliar->comando);
@@ -109,13 +110,117 @@ void ejecutar(nodo* comando){ //tomar datos de scanf desde lista
         printf(rutaScript);
         printf(" cargado...\n");
 
-        ejecutarScript(rutaScript);         //ejecutar script
+        ejecutarScript(rutaScript);         //guardar script en lista enlazada
         primero = NULL;
+    }else{
+        seleccionComando(comando);     //si no hay que extraer archivo manipular lo que hay en la lista
     }
 
 }
+void seleccionComando(nodo* comando){
+    int i;
+    char nombreComando[200];
+    char rutaScript[200];
+    char nombreAtributo[200];
+
+    strcpy(nombreComando, comando->comando);
+
+    //printf(nombreComando);
+
+   for(i = 0; nombreComando[i]; i++)
+        nombreComando[i] = tolower(nombreComando[i]); // convierte a minusculas
+
+    if((strcasecmp( nombreComando, "mkdisk" )==0) || (strcasecmp( nombreComando, "mkDisk" )==0)){
+        printf("Crear Disco\n");
+
+    }else if((strcasecmp( nombreComando, "rmdisk" )==0) || (strcasecmp( nombreComando, "rmDisk" )==0)){
+        printf("eliminar disoco");
+
+    }else if((strcasecmp( nombreComando, "fdisk" )==0) || (strcasecmp( nombreComando, "fDisk" )==0)){
+        printf("crear particion");
+
+    }else if((strcasecmp( nombreComando, "mkfs" )==0) || (strcasecmp( nombreComando, "mkfs" )==0)){
+        printf("Formatear particion\n");
+
+    }else if((strcasecmp( nombreComando, "mount" )==0) || (strcasecmp( nombreComando, "Mount" )==0)){
+        printf("montar parcition");
+
+    } else if((strcasecmp( nombreComando, "unmount" )==0) || (strcasecmp( nombreComando, "unMount" )==0)){
+        printf("desmontar particion");
+    }
+
+
+
+}
+
+char *substring(char *string, int position, int length){
+    char *pointer;
+    int c;
+
+    pointer = malloc(length+1);
+
+    if (pointer == NULL){
+        printf("Ya no hay espacion el memoria\n");
+        exit(1);
+    }
+
+    for (c = 0 ; c < length ; c++){
+        *(pointer+c) = *(string+position-1);
+         string++;
+    }
+
+    *(pointer+c) = '\0';
+
+    return pointer;
+}
+
 void ejecutarScript(char ruta[100]){
     printf("%s %s\n",terminal,ruta);
+
+    char rutas[250];
+    char cadena[200];
+    char* pointer;
+
+    FILE* fichero;      //iniciar para leer el archivo de scripts
+
+    strcpy(rutas,ruta);
+
+    fichero = fopen(rutas, "r");  //leer el archivo y guardarlo en fichero
+
+    if(fichero == NULL)  //si el archivo no existe
+    {
+        fputs ("Error el archivo no existe \n",stderr);
+        return -1;
+    }
+    else{       //si el fichero existe
+
+        while (!feof(fichero)){
+
+            fgets(cadena, 200, fichero);
+
+            if(strcasecmp( cadena, "\n" )!=0)     //si hay un salto de linea
+            {
+                pointer = substring( cadena, 1, 1);
+                if(strcasecmp( pointer, "#") == 0)      //para reconocer los comentarios
+                {
+
+                }
+                else{
+                    pointer = substring( cadena, 1, strlen(cadena)-1);
+                    strcpy(cadena, pointer);
+
+                    analizar(cadena);       //analizar contenido del archivo
+
+                    nodo* auxiliar = primero;   //inizializar lista
+                    seleccionComando(auxiliar);  //ir al manejo de los datos de la lista
+                    primero = NULL;
+                }
+            }
+        }
+    }
+    fclose(fichero);        //serrar  el archivo
+
 }
+
 
 
