@@ -1,11 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 #include <string.h>
-#include <math.h>
-#include <ctype.h>
-#include <dirent.h>
-
 
 typedef struct{     //struct para identificar las palabras del comando escrito y la cantidad de palabras recibidas
     char comando[200];
@@ -47,11 +44,26 @@ typedef struct Master_Boot_Record{  //struct para mbr
     particion mbr_particion_4;  //extendida
 } mbr;
 
+typedef struct{ //struct para manejo de direccion de creacion de disco
+    char path[200];
+    char id[200];
+    char nombre[200];
+    int numero;
+    struct nodoPath* siguiente;
+} nodoPath;
+
+//declaracion de apuntadores tipo atributo
 atributo *first = NULL;
 atributo *last = NULL;
-
+//declaracin de apuntadores tipo nodo
 nodo *primero = NULL;
 nodo *ultimo = NULL;
+
+nodoPath *firstPath = NULL;
+nodoPath *lastPath = NULL;
+
+int contadorGlobal = 1;
+char bufferComando[250];
 
 char terminal[15] = "[MIA]@elder:~$ ";
 
@@ -61,7 +73,7 @@ int main()
 }
 
 void menu(){
-    char comando[100];
+    char comando[200];
     char opcion[1];
 
     do{
@@ -75,7 +87,6 @@ void menu(){
          }else if(strcmp( comando, "exit")==0  || strcmp( comando, "salir")==0){
            return 0;
         }else{
-
             //printf(comando);
 
            analizar(comando);  //enviar cadena leida por el teclado
@@ -86,8 +97,6 @@ void menu(){
 
       }while (opcion);
 }
-
-
 void analizar(char c[200]){
     int contador = 1;
     char comando2[100];
@@ -207,10 +216,53 @@ void seleccionComando(nodo* comando){  //manejar los datos de la lista enlazada
 
 
     }else if((strcasecmp( nombreComando, "rmdisk" )==0) || (strcasecmp( nombreComando, "rmDisk" )==0)){
-        printf("eliminar disoco");
+       // printf("eliminar disoco");
+        nodo* auxiliar = comando->siguiente;
+
+        while(auxiliar != NULL)
+        {
+            strcpy(nombreAtributo, auxiliar->comando);
+            char *path=substring(nombreAtributo, 1,7);
+
+            if(strcasecmp(path,"-path=\"")==0){
+                char nuevoPath[200];
+                strcpy(nombreAtributo,auxiliar->comando);
+                nodo* aux = auxiliar->siguiente;
+                strcat(nombreAtributo," ");
+                strcat(nombreAtributo,aux->comando);
+            }
+            splitAtributo(nombreAtributo);
+            auxiliar = auxiliar->siguiente;
+        }
+        atributo* auxiliarFirst= first;
+        rmdisk(auxiliarFirst);
+        first = NULL;
+
 
     }else if((strcasecmp( nombreComando, "fdisk" )==0) || (strcasecmp( nombreComando, "fDisk" )==0)){
-        printf("crear particion");
+        printf("crear particion\n");
+
+        nodo* auxiliar = comando->siguiente;
+
+        while(auxiliar != NULL)
+        {
+            strcpy(nombreAtributo, auxiliar->comando);
+            char *path=substring(nombreAtributo, 1,7);
+
+            if(strcasecmp(path,"-path=\"")==0){
+                char nuevoPath[200];
+                strcpy(nombreAtributo,auxiliar->comando);
+                nodo* aux = auxiliar->siguiente;
+                strcat(nombreAtributo," ");
+                strcat(nombreAtributo,aux->comando);
+            }
+            splitAtributo(nombreAtributo);
+            auxiliar = auxiliar->siguiente;
+        }
+        atributo* auxiliarFirst= first;
+        fdisk(auxiliarFirst);
+        first = NULL;
+
 
     }else if((strcasecmp( nombreComando, "mkfs" )==0)){
         printf("Formatear particion\n");
@@ -218,14 +270,223 @@ void seleccionComando(nodo* comando){  //manejar los datos de la lista enlazada
     }else if((strcasecmp( nombreComando, "mount" )==0)){
         printf("montar parcition");
 
-    } else if((strcasecmp( nombreComando, "umount" )==0)){
+    }else if((strcasecmp( nombreComando, "umount" )==0)){
         printf("desmontar particion");
+    }else if((strcasecmp( nombreComando, "rep" )==0)){
+        printf("reporte\n");
+        nodo* auxiliar = comando->siguiente;
+        while(auxiliar != NULL)
+        {
+            strcpy(nombreAtributo, auxiliar->comando);
+            splitAtributo(nombreAtributo);
+            auxiliar = auxiliar->siguiente;
+        }
+        atributo* auxiliarFirst= first;
+        reportes(auxiliarFirst);
+        first = NULL;
+    }
+
+
+}
+
+void reportes(atributo *arreglo){
+    char path[200];
+    int boolPath = 0;
+    char name[200];
+    int boolName = 0;
+    char id[15];
+    int boolId = 0;
+    int error = 0;
+    char ruta[100];
+    int boolRuta = 0;
+    char nombreComando[200];
+    if(arreglo!=NULL){
+        atributo* auxiliar = arreglo;
+        while(auxiliar != NULL){
+            strcpy(nombreComando, auxiliar->comando);
+            if(strcasecmp( nombreComando, "-path" )==0)
+            {
+                strcpy(path,auxiliar->atributo);
+                char *p = substring(path,1,1);
+
+                char* pathNuevo;
+                if(strcasecmp(p,"\"")==0){
+                    pathNuevo = substring(path,2,strlen(path)-2);
+                    strcpy(path,pathNuevo);
+                }
+                boolPath = 1;
+            }
+            else if(strcasecmp( nombreComando, "-name" )==0)
+            {
+                strcpy(name, auxiliar->atributo);
+                boolName = 1;
+            }
+            else if(strcasecmp( nombreComando, "-id" )==0)
+            {
+                strcpy(id, auxiliar->atributo);
+                boolId = 1;
+            }
+            else if(strcasecmp( nombreComando, "-ruta" )==0)
+            {
+                strcpy(ruta, auxiliar->atributo);
+                //boolId = 1;
+                boolRuta = 1;
+            }
+            else
+            {
+                char *pointer = substring(nombreComando,strlen(nombreComando),strlen(nombreComando));
+                if(strcasecmp(pointer,"\"")==0){
+                    error = 0;
+                }else{
+                    error = 1;
+                }
+            }
+            auxiliar = auxiliar->siguiente;
+        }
+    }
+    if(boolPath == 0 || boolName == 0 || boolId == 0){
+        printf("ERROR AL CREAR REPORTE %s",name);
+    }else{
+        if(error != 1){
+            if(strcasecmp(name, "mbr")==0){
+                reporteMBR(path,id);
+            }else if(strcasecmp(name, "disk")==0){
+                reporteDISK(path,id);
+            }
+        }else{
+            printf("ERROR AL CREAR REPORTE");
+        }
+    }
+}
+void reporteMBR(char path[200], char id[15]){
+   printf("reporte mbr");
+}
+
+void reporteDISK(char path[200], char id[15]){
+    printf("reporte disk");
+}
+void fdisk(atributo* arreglo){
+    printf("creando particion");
+
+}
+
+void rmdisk(atributo* arreglo){   //eliminar disco
+    char path[200];
+    int error = 0;
+    char nombreComando [200];
+    if(arreglo!=NULL)
+    {
+        atributo* auxiliar = arreglo;
+        while(auxiliar != NULL)
+        {
+            strcpy(nombreComando, auxiliar->comando);
+            if(strcasecmp( nombreComando, "-path" )==0)
+            {
+                strcpy(path, auxiliar->atributo);
+                char *p = substring(path,1,1);
+
+                char* pathNuevo;
+                if(strcasecmp(p,"\"")==0){
+                    pathNuevo = substring(path,2,strlen(path)-2);
+                    strcpy(path,pathNuevo);
+                }
+            }
+            else
+            {
+                char *pointer = substring(nombreComando,strlen(nombreComando),strlen(nombreComando));
+                if(strcasecmp(pointer,"\"")==0){
+                    error = 0;
+                }else{
+                    error = 1;
+                }
+            }
+            auxiliar = auxiliar->siguiente;
+        }
+
+        if(error == 1)
+        {
+            printf("ERROR AL ELIMINAR DISCO: %s\n",path);
+        }
+        else
+        {
+            int opcionEliminar = 0;
+            remove(path) == 0 ;
+        }
     }
 }
 
 void separarPath(char str[200]){  //manejar direccion para crear disco
-    printf("manejo de direccion para crear disco");
+    printf("manejo de direccion para crear disco\n");
 
+    char* pointer;
+    char str2[200];
+    char path[200];
+    char indexName[4];
+    char letra[26]      /*manejo de letras*/                                                                                                                                                                                                                                                         = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
+
+    const char s[2] = "/";
+    char nombre[200];
+    char *token;
+    int contador = 1;
+    char comando[10];
+    char atributos[200];
+
+    strcpy( str2, str );
+    strcpy( path, str );
+
+    token = strtok(str2, s);
+
+    while( token != NULL )
+    {
+        strcpy(nombre, token);
+        token = strtok(NULL, s);
+        contador++;
+    }
+
+    strcpy(indexName,"vd");
+    strcat(&indexName, &letra[contadorGlobal-1]);
+    pointer = substring( &indexName, 1, 3);
+
+    agregarPath(path,pointer,nombre,1);
+    contadorGlobal += 1;
+
+}
+void agregarPath(char* path, char* id, char* nombre, int numero){
+
+    nodoPath* nuevo = malloc(sizeof(nodoPath));
+
+    nuevo->siguiente = NULL;
+
+    strncpy(nuevo->path, path,200);
+    strncpy(nuevo->id, id,200);
+    strncpy(nuevo->nombre, nombre,200);
+    nuevo->numero = numero;
+
+    if(firstPath == NULL){
+        firstPath = nuevo;
+        lastPath  = nuevo;
+    }else
+    {
+        nodoPath* auxiliar = firstPath;
+        int boolPath = 0;
+        while(auxiliar == NULL)
+        {
+            if(strcasecmp(auxiliar->nombre, nombre)==0)
+            {
+                boolPath = 1;
+                auxiliar = NULL;
+            }
+            else
+            {
+                auxiliar = auxiliar->siguiente;
+            }
+        }
+        if(boolPath == 0)
+        {
+            lastPath->siguiente = nuevo;
+            lastPath = nuevo;
+        }
+    }
 }
 void mkdisk(atributo* arreglo){  //crear el disco con los parametros obtenidos
     int sizes;
@@ -265,11 +526,6 @@ void mkdisk(atributo* arreglo){  //crear el disco con los parametros obtenidos
             {
                 strcpy(unit, auxiliar->atributo);
                 boolUnit = 1;
-            }
-            else if(strcasecmp( nombreComando, "-name" )==0)
-            {
-                strcpy(nombre, auxiliar->name);
-
             }
 
             else if(strcasecmp( nombreComando, "-path" )==0)
@@ -416,8 +672,8 @@ void mkdisk(atributo* arreglo){  //crear el disco con los parametros obtenidos
                         fwrite(&g, sizeof(datoG), 1, archivo);
                         contador = contador + 1 ;
                     }
-                    printf("CREANDO DISCO: %s\n",path);
-                  separarPath(path);
+                    printf("Disco creado en: %s\n",path);
+                    separarPath(path);
                 }
                 fclose(archivo);
             }
@@ -426,17 +682,15 @@ void mkdisk(atributo* arreglo){  //crear el disco con los parametros obtenidos
 }
 
 
-
 void splitAtributo(char str[200]){ //separar atributo para despues de comando principal
   char str2[200];
     strcpy( str2, str );
-    const char s[2] = "::";
     char *token;
     int contador = 1;
     char comando[10];
     char atributos[200];
 
-    token = strtok(str2, s);
+    token = strtok(str2, "::");
 
     while( token != NULL )
     {
@@ -449,7 +703,7 @@ void splitAtributo(char str[200]){ //separar atributo para despues de comando pr
 
             strcpy(atributos, token);
         }
-        token = strtok(NULL, s);
+        token = strtok(NULL, "::");
         contador++;
     }
 
@@ -457,7 +711,7 @@ void splitAtributo(char str[200]){ //separar atributo para despues de comando pr
 }
 void agregarAtributo(char* comando, char* attribute, int numero){
 
-     atributo* nuevo = malloc(sizeof(atributo));
+    atributo* nuevo = malloc(sizeof(atributo));
     nuevo->siguiente = NULL;
     strncpy(nuevo->comando, comando,200);
     strncpy(nuevo->atributo, attribute,200);
@@ -520,6 +774,5 @@ void ejecutarScript(char ruta[100]){  //ejectuar ruta para localizar con exec
     }
     fclose(fichero);        //serrar  el archivo
 }
-
 
 
